@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hành Trình Xanh - Giám sát tưới cây</title>
+
+    <!-- Thư viện biểu đồ -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet" href="style.css" />
+
+</head>
+
+<body>
+    <header>
+        <h1>🌱 Hành Trình Xanh</h1>
+        <p>Hệ thống giám sát và tưới cây tự động bằng ESP32</p>
+    </header>
+
+    <main>
+        <div class="topbar">
+            <div>
+                <h2>Dashboard giám sát</h2>
+                <p class="status" id="connectionStatus">
+                    Đang kết nối ThingSpeak...
+                </p>
+            </div>
+            <p class="status" id="lastUpdate">Chưa nhận dữ liệu</p>
+        </div>
+
+        <div id="error"></div>
+
+        <!-- Các chỉ số cảm biến -->
+        <section class="grid">
+            <article class="card">
+                <p class="card-label">💧 Độ ẩm đất</p>
+                <div class="value blue" id="soil">--%</div>
+                <p class="detail">ThingSpeak Field 1</p>
+            </article>
+
+            <article class="card">
+                <p class="card-label">🌡️ Nhiệt độ</p>
+                <div class="value orange" id="temperature">--°C</div>
+                <p class="detail">ThingSpeak Field 2</p>
+            </article>
+
+            <article class="card">
+                <p class="card-label">☁️ Độ ẩm không khí</p>
+                <div class="value purple" id="humidity">--%</div>
+                <p class="detail">ThingSpeak Field 3</p>
+            </article>
+        </section>
+
+        <!-- Ba biểu đồ cảm biến riêng biệt -->
+        <section class="chart-grid">
+            <article class="panel">
+                <h3>💧 Biểu đồ độ ẩm đất (%)</h3>
+                <div class="chart-wrap">
+                    <canvas id="soilChart"></canvas>
+                </div>
+            </article>
+            <article class="panel">
+                <h3>🌡️ Biểu đồ nhiệt độ (°C)</h3>
+                <div class="chart-wrap">
+                    <canvas id="temperatureChart"></canvas>
+                </div>
+            </article>
+            <article class="panel">
+                <h3>☁️ Biểu đồ độ ẩm không khí (%)</h3>
+                <div class="chart-wrap">
+                    <canvas id="humidityChart"></canvas>
+                </div>
+            </article>
+        </section>
+
+        <!-- Trạng thái hệ thống -->
+        <section class="lower-grid">
+            <article class="panel">
+                <h3>⚙️ Trạng thái hệ thống</h3>
+
+                <div class="info-row">
+                    <span class="info-label">Máy bơm</span>
+                    <span id="pump" class="pill">Đang chờ</span>
+                </div>
+
+                <div class="info-row">
+                    <span class="info-label">Chế độ vận hành</span>
+                    <span id="mode" class="pill">Đang chờ</span>
+                </div>
+
+                <div class="info-row">
+                    <span class="info-label">Mức ưu tiên</span>
+                    <span id="priority" class="pill">Đang chờ</span>
+                </div>
+
+                <div class="info-row">
+                    <span class="info-label">Lần ghi dữ liệu</span>
+                    <span id="entryId" class="info-value">--</span>
+                </div>
+            </article>
+        </section>
+
+        <!-- Lịch sử -->
+        <section class="panel">
+            <h3>🕒 Lịch sử dữ liệu ThingSpeak</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Thời gian</th>
+                            <th>Độ ẩm đất</th>
+                            <th>Nhiệt độ</th>
+                            <th>Độ ẩm KK</th>
+                            <th>Máy bơm</th>
+                            <th>Chế độ</th>
+                            <th>Ưu tiên</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history">
+                        <tr>
+                            <td colspan="7">Đang tải dữ liệu...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div class="footer">
+        Smart Garden · ESP32 · ThingSpeak IoT Monitoring
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. CẤU HÌNH THINGSPEAK
+        // ==========================================
+
+        const CHANNEL_ID = "";
+
+        // Nếu Channel Public, để chuỗi rỗng.
+        // Nếu Channel Private, nhập READ API KEY.
+        const READ_API_KEY = "";
+
+        // Cập nhật mỗi 16 giây
+        const REFRESH_INTERVAL = 16000;
+
+        // ==========================================
+        // 2. HÀM HỖ TRỢ HIỂN THỊ
+        // ==========================================
+
+        function getNumber(value) {
+            if (value === null || value === undefined || value === "") {
+                return null;
+            }
+
+            const number = Number(value);
+            return Number.isFinite(number) ? number : null;
+        }
+
+        function formatNumber(value, digits = 1) {
+            return value === null ? "--" : value.toFixed(digits);
+        }
+
+        function getPriority(value) {
+            const priority = getNumber(value);
+
+            if (priority === 0) return "LOW";
+            if (priority === 1) return "NORMAL";
+            if (priority === 2) return "HIGH";
+
+            return "Không xác định";
+        }
+
+        function getMode(value) {
+            const mode = getNumber(value);
+
+            if (mode === 0) return "MANUAL";
+            if (mode === 1) return "AUTO";
+
+            return "Không xác định";
+        }
+
+        function getPump(value) {
+            const pump = getNumber(value);
+
+            if (pump === 0) return "TẮT";
+            if (pump === 1) return "ĐANG BẬT";
+
+            return "Không xác định";
+        }
+
+        function setPill(id, text, type = "") {
+            const element = document.getElementById(id);
+            element.textContent = text;
+            element.className = "pill";
+
+            if (type) element.classList.add(type);
+        }
+
+        function formatTime(value) {
+            if (!value) return "--";
+
+            const date = new Date(value);
+
+            if (Number.isNaN(date.getTime())) return value;
+
+            return date.toLocaleString("vi-VN", {
+                timeZone: "Asia/Ho_Chi_Minh"
+            });
+        }
+
+        // ==========================================
+        // 3. KHỞI TẠO 3 BIỂU ĐỒ RIÊNG BIỆT
+        // ==========================================
+
+        function createSensorChart(canvasId, label, color, unit, suggestedMax = undefined) {
+            return new Chart(document.getElementById(canvasId), {
+                type: "line",
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label,
+                        data: [],
+                        borderColor: color,
+                        backgroundColor: color + "22",
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        spanGaps: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: "index" },
+                    plugins: {
+                        legend: { display: true, position: "bottom" },
+                        tooltip: { callbacks: { label: context => `${context.dataset.label}: ${context.parsed.y ?? "--"}${unit}` } }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: "Thời gian" } },
+                        y: { beginAtZero: true, suggestedMax }
+                    }
+                }
+            });
+        }
+
+        const soilChart = createSensorChart("soilChart", "Độ ẩm đất", "#0284c7", "%", 100);
+        const temperatureChart = createSensorChart("temperatureChart", "Nhiệt độ", "#ea580c", "°C");
+        const humidityChart = createSensorChart("humidityChart", "Độ ẩm không khí", "#7c3aed", "%", 100);
+
+        // ==========================================
+        // 4. ĐỌC DỮ LIỆU TỪ THINGSPEAK
+        // ==========================================
+
+        async function loadThingSpeakData() {
+            const errorElement = document.getElementById("error");
+
+            try {
+                if (
+                    !CHANNEL_ID ||
+                    CHANNEL_ID === "YOUR_CHANNEL_ID"
+                ) {
+                    throw new Error(
+                        "Bạn chưa nhập CHANNEL_ID trong phần cấu hình."
+                    );
+                }
+
+                let url =
+                    `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=20`;
+
+                if (READ_API_KEY.trim() !== "") {
+                    url += `&api_key=${encodeURIComponent(READ_API_KEY.trim())}`;
+                }
+
+                const response = await fetch(url, {
+                    cache: "no-store"
+                });
+
+                if (!response.ok) {
+                    throw new Error(
+                        `ThingSpeak trả về lỗi HTTP ${response.status}.`
+                    );
+                }
+
+                const result = await response.json();
+
+                if (!Array.isArray(result.feeds) || result.feeds.length === 0) {
+                    throw new Error(
+                        "Channel chưa có dữ liệu hoặc bạn không có quyền đọc dữ liệu."
+                    );
+                }
+
+                // Chỉ dùng các bản ghi có ít nhất một Field chứa dữ liệu.
+                const feeds = result.feeds.filter(feed =>
+                    [
+                        feed.field1, feed.field2, feed.field3,
+                        feed.field4, feed.field5, feed.field6
+                    ].some(value => value !== null && value !== undefined && value !== "")
+                );
+
+                if (feeds.length === 0) {
+                    throw new Error("Không tìm thấy bản ghi có dữ liệu.");
+                }
+
+                const latest = feeds[feeds.length - 1];
+
+                // ======================================
+                // 5. HIỂN THỊ 6 FIELD MỚI NHẤT
+                // ======================================
+
+                const soil = getNumber(latest.field1);
+                const temperature = getNumber(latest.field2);
+                const humidity = getNumber(latest.field3);
+
+                document.getElementById("soil").textContent =
+                    soil === null ? "--" : `${formatNumber(soil)}%`;
+
+                document.getElementById("temperature").textContent =
+                    temperature === null ? "--" : `${formatNumber(temperature)}°C`;
+
+                document.getElementById("humidity").textContent =
+                    humidity === null ? "--" : `${formatNumber(humidity)}%`;
+
+                const pumpValue = getNumber(latest.field4);
+                const modeValue = getNumber(latest.field5);
+
+                setPill(
+                    "pump",
+                    getPump(latest.field4),
+                    pumpValue === 1 ? "pill-on" :
+                        pumpValue === 0 ? "pill-off" : ""
+                );
+
+                setPill("mode", getMode(latest.field5));
+
+                setPill(
+                    "priority",
+                    getPriority(latest.field6)
+                );
+
+                document.getElementById("entryId").textContent =
+                    latest.entry_id ?? "--";
+
+                document.getElementById("lastUpdate").textContent =
+                    "Thời gian ghi nhận: " + formatTime(latest.created_at);
+
+                document.getElementById("connectionStatus").textContent =
+                    "● Đã kết nối ThingSpeak";
+
+                document.getElementById("connectionStatus").style.color =
+                    "#15803d";
+
+                errorElement.style.display = "none";
+
+                // ======================================
+                // 6. CẬP NHẬT BIỂU ĐỒ
+                // ======================================
+
+                const chartLabels = feeds.map(feed => {
+                    const date = new Date(feed.created_at);
+
+                    return Number.isNaN(date.getTime())
+                        ? "--"
+                        : date.toLocaleTimeString("vi-VN", {
+                            timeZone: "Asia/Ho_Chi_Minh",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit"
+                        });
+                });
+
+                // Biểu đồ 1: Độ ẩm đất (Field 1)
+                soilChart.data.labels = chartLabels;
+                soilChart.data.datasets[0].data = feeds.map(feed => getNumber(feed.field1));
+                soilChart.update();
+
+                // Biểu đồ 2: Nhiệt độ (Field 2)
+                temperatureChart.data.labels = chartLabels;
+                temperatureChart.data.datasets[0].data = feeds.map(feed => getNumber(feed.field2));
+                temperatureChart.update();
+
+                // Biểu đồ 3: Độ ẩm không khí (Field 3)
+                humidityChart.data.labels = chartLabels;
+                humidityChart.data.datasets[0].data = feeds.map(feed => getNumber(feed.field3));
+                humidityChart.update();
+
+                // ======================================
+                // 7. BẢNG LỊCH SỬ
+                // ======================================
+
+                const history = document.getElementById("history");
+
+                history.innerHTML = [...feeds].reverse().map(feed => `
+          <tr>
+            <td>${formatTime(feed.created_at)}</td>
+            <td>${formatNumber(getNumber(feed.field1))}%</td>
+            <td>${formatNumber(getNumber(feed.field2))}°C</td>
+            <td>${formatNumber(getNumber(feed.field3))}%</td>
+            <td>${getPump(feed.field4)}</td>
+            <td>${getMode(feed.field5)}</td>
+            <td>${getPriority(feed.field6)}</td>
+          </tr>
+        `).join("");
+
+            } catch (error) {
+                errorElement.textContent = error.message;
+                errorElement.style.display = "block";
+
+                document.getElementById("connectionStatus").textContent =
+                    "Không thể tải dữ liệu ThingSpeak";
+
+                document.getElementById("connectionStatus").style.color =
+                    "#dc2626";
+
+                console.error("ThingSpeak error:", error);
+            }
+        }
+
+        // ==========================================
+        // 8. CHẠY WEBSITE VÀ TỰ ĐỘNG CẬP NHẬT
+        // ==========================================
+
+        loadThingSpeakData();
+
+        setInterval(loadThingSpeakData, REFRESH_INTERVAL);
+    </script>
+</body>
+
+</html>
