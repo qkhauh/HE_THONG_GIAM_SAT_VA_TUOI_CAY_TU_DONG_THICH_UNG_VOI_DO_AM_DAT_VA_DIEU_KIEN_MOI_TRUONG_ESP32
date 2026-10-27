@@ -1,432 +1,1087 @@
+```html
 <!DOCTYPE html>
 <html lang="vi">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hành Trình Xanh - Giám sát tưới cây</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Trang web giám sát hệ thống tưới cây tự động ESP32 qua ThingSpeak">
+    <title>Smart Irrigation | ESP32 Dashboard</title>
 
-    <!-- Thư viện biểu đồ -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Thư viện vẽ biểu đồ -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <link rel="stylesheet" href="style.css" />
-
 </head>
 
 <body>
-    <header>
-        <h1>🌱 Hành Trình Xanh</h1>
-        <p>Hệ thống giám sát và tưới cây tự động bằng ESP32</p>
-    </header>
+    <div class="app">
 
-    <main>
-        <div class="topbar">
-            <div>
-                <h2>Dashboard giám sát</h2>
-                <p class="status" id="connectionStatus">
-                    Đang kết nối ThingSpeak...
-                </p>
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">🌱</div>
+                <div>
+                    <h2>Smart Irrigation</h2>
+                    <p>ESP32 Monitoring</p>
+                </div>
             </div>
-            <p class="status" id="lastUpdate">Chưa nhận dữ liệu</p>
-        </div>
 
-        <div id="error"></div>
+            <nav class="navigation">
+                <a href="#overview" class="nav-link active">▦ Tổng quan</a>
+                <a href="#charts" class="nav-link">▥ Biểu đồ</a>
+                <a href="#history" class="nav-link">▤ Lịch sử dữ liệu</a>
+            </nav>
 
-        <!-- Các chỉ số cảm biến -->
-        <section class="grid">
-            <article class="card">
-                <p class="card-label">💧 Độ ẩm đất</p>
-                <div class="value blue" id="soil">--%</div>
-                <p class="detail">ThingSpeak Field 1</p>
-            </article>
-
-            <article class="card">
-                <p class="card-label">🌡️ Nhiệt độ</p>
-                <div class="value orange" id="temperature">--°C</div>
-                <p class="detail">ThingSpeak Field 2</p>
-            </article>
-
-            <article class="card">
-                <p class="card-label">☁️ Độ ẩm không khí</p>
-                <div class="value purple" id="humidity">--%</div>
-                <p class="detail">ThingSpeak Field 3</p>
-            </article>
-        </section>
-
-        <!-- Ba biểu đồ cảm biến riêng biệt -->
-        <section class="chart-grid">
-            <article class="panel">
-                <h3>💧 Biểu đồ độ ẩm đất (%)</h3>
-                <div class="chart-wrap">
-                    <canvas id="soilChart"></canvas>
-                </div>
-            </article>
-            <article class="panel">
-                <h3>🌡️ Biểu đồ nhiệt độ (°C)</h3>
-                <div class="chart-wrap">
-                    <canvas id="temperatureChart"></canvas>
-                </div>
-            </article>
-            <article class="panel">
-                <h3>☁️ Biểu đồ độ ẩm không khí (%)</h3>
-                <div class="chart-wrap">
-                    <canvas id="humidityChart"></canvas>
-                </div>
-            </article>
-        </section>
-
-        <!-- Trạng thái hệ thống -->
-        <section class="lower-grid">
-            <article class="panel">
-                <h3>⚙️ Trạng thái hệ thống</h3>
-
-                <div class="info-row">
-                    <span class="info-label">Máy bơm</span>
-                    <span id="pump" class="pill">Đang chờ</span>
-                </div>
-
-                <div class="info-row">
-                    <span class="info-label">Chế độ vận hành</span>
-                    <span id="mode" class="pill">Đang chờ</span>
-                </div>
-
-                <div class="info-row">
-                    <span class="info-label">Mức ưu tiên</span>
-                    <span id="priority" class="pill">Đang chờ</span>
-                </div>
-
-                <div class="info-row">
-                    <span class="info-label">Lần ghi dữ liệu</span>
-                    <span id="entryId" class="info-value">--</span>
-                </div>
-            </article>
-        </section>
-
-        <!-- Lịch sử -->
-        <section class="panel">
-            <h3>🕒 Lịch sử dữ liệu ThingSpeak</h3>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Thời gian</th>
-                            <th>Độ ẩm đất</th>
-                            <th>Nhiệt độ</th>
-                            <th>Độ ẩm KK</th>
-                            <th>Máy bơm</th>
-                            <th>Chế độ</th>
-                            <th>Ưu tiên</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history">
-                        <tr>
-                            <td colspan="7">Đang tải dữ liệu...</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="sidebar-bottom">
+                <span class="connection-dot" id="sidebarDot"></span>
+                <span id="sidebarConnection">Đang khởi tạo...</span>
             </div>
-        </section>
-    </main>
+        </aside>
 
-    <div class="footer">
-        Smart Garden · ESP32 · ThingSpeak IoT Monitoring
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+
+            <!-- HEADER -->
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">IOT MONITORING SYSTEM</p>
+                    <h1>Hệ thống tưới cây tự động</h1>
+                    <p class="subtitle">
+                        Giám sát cảm biến và điều khiển máy bơm thông qua ESP32.
+                    </p>
+                </div>
+
+                <div class="header-actions">
+                    <div class="connection-status" id="connectionStatus">
+                        <span class="status-dot"></span>
+                        <span id="connectionText">Đang kết nối...</span>
+                    </div>
+
+                    <button class="refresh-button" id="refreshButton">
+                        ↻ Làm mới
+                    </button>
+                </div>
+            </header>
+
+            <!-- THÔNG TIN KẾT NỐI -->
+            <section class="connection-panel">
+                <div>
+                    <span class="panel-label">ThingSpeak Channel</span>
+                    <strong id="channelDisplay">Chưa cấu hình</strong>
+                </div>
+
+                <div>
+                    <span class="panel-label">Lần cập nhật gần nhất</span>
+                    <strong id="lastUpdated">Chưa có dữ liệu</strong>
+                </div>
+
+                <div>
+                    <span class="panel-label">Tổng bản ghi tải được</span>
+                    <strong id="recordCount">0</strong>
+                </div>
+            </section>
+
+            <!-- OVERVIEW -->
+            <section id="overview" class="section">
+                <div class="section-heading">
+                    <div>
+                        <h2>Tổng quan hệ thống</h2>
+                        <p>Các thông số mới nhất nhận được từ ThingSpeak.</p>
+                    </div>
+                    <span class="live-badge">
+                        <span class="live-dot"></span>
+                        LIVE DATA
+                    </span>
+                </div>
+
+                <div class="metrics-grid">
+
+                    <article class="metric-card soil-card">
+                        <div class="metric-top">
+                            <span class="metric-label">Độ ẩm đất</span>
+                            <span class="metric-icon">💧</span>
+                        </div>
+                        <div class="metric-value">
+                            <span id="soilValue">--</span>
+                            <span class="metric-unit">%</span>
+                        </div>
+                        <div class="metric-progress">
+                            <div id="soilProgress" class="progress-fill"></div>
+                        </div>
+                        <p class="metric-description" id="soilDescription">
+                            Đang chờ dữ liệu...
+                        </p>
+                    </article>
+
+                    <article class="metric-card temperature-card">
+                        <div class="metric-top">
+                            <span class="metric-label">Nhiệt độ không khí</span>
+                            <span class="metric-icon">🌡️</span>
+                        </div>
+                        <div class="metric-value">
+                            <span id="temperatureValue">--</span>
+                            <span class="metric-unit">°C</span>
+                        </div>
+                        <div class="metric-progress">
+                            <div id="temperatureProgress" class="progress-fill"></div>
+                        </div>
+                        <p class="metric-description" id="temperatureDescription">
+                            Đang chờ dữ liệu...
+                        </p>
+                    </article>
+
+                    <article class="metric-card humidity-card">
+                        <div class="metric-top">
+                            <span class="metric-label">Độ ẩm không khí</span>
+                            <span class="metric-icon">☁️</span>
+                        </div>
+                        <div class="metric-value">
+                            <span id="humidityValue">--</span>
+                            <span class="metric-unit">%</span>
+                        </div>
+                        <div class="metric-progress">
+                            <div id="humidityProgress" class="progress-fill"></div>
+                        </div>
+                        <p class="metric-description" id="humidityDescription">
+                            Đang chờ dữ liệu...
+                        </p>
+                    </article>
+
+                </div>
+            </section>
+
+            <!-- PUMP AND MODE -->
+            <section class="section">
+                <div class="section-heading">
+                    <div>
+                        <h2>Trạng thái vận hành</h2>
+                        <p>Trạng thái máy bơm và chế độ điều khiển được gửi từ ESP32.</p>
+                    </div>
+                </div>
+
+                <div class="operation-grid">
+
+                    <article class="operation-card">
+                        <div class="operation-icon pump-icon">◉</div>
+                        <div class="operation-info">
+                            <span class="panel-label">Pump Status</span>
+                            <h3 id="pumpStatus">Chưa có dữ liệu</h3>
+                            <p id="pumpDescription">
+                                Trạng thái máy bơm sẽ xuất hiện tại đây.
+                            </p>
+                        </div>
+                        <span class="state-badge neutral" id="pumpBadge">
+                            UNKNOWN
+                        </span>
+                    </article>
+
+                    <article class="operation-card">
+                        <div class="operation-icon mode-icon">⚙</div>
+                        <div class="operation-info">
+                            <span class="panel-label">Operating Mode</span>
+                            <h3 id="modeStatus">Chưa có dữ liệu</h3>
+                            <p id="modeDescription">
+                                Chế độ vận hành sẽ xuất hiện tại đây.
+                            </p>
+                        </div>
+                        <span class="state-badge neutral" id="modeBadge">
+                            UNKNOWN
+                        </span>
+                    </article>
+
+                </div>
+            </section>
+
+            <!-- CHARTS -->
+            <section id="charts" class="section">
+                <div class="section-heading">
+                    <div>
+                        <h2>Biểu đồ cảm biến</h2>
+                        <p>Theo dõi sự thay đổi của các thông số theo thời gian.</p>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+
+                    <!-- SOIL CHART -->
+                    <article class="chart-card">
+                        <div class="chart-header">
+                            <div>
+                                <h3>Độ ẩm đất</h3>
+                                <p>Soil Moisture (%)</p>
+                            </div>
+                            <span class="chart-icon">💧</span>
+                        </div>
+
+                        <div class="results">
+                            <label for="soilRange">Results</label>
+                            <select id="soilRange">
+                                <option value="day">Theo ngày</option>
+                                <option value="month">Theo tháng</option>
+                            </select>
+                        </div>
+
+                        <div class="date-filter">
+                            <label for="soilDate">Chọn ngày/tháng</label>
+                            <input type="date" id="soilDate">
+                        </div>
+
+                        <div class="chart-summary">
+                            <div>
+                                <span>Trung bình</span>
+                                <strong id="soilAverage">--</strong>
+                            </div>
+                            <div>
+                                <span>Cao nhất</span>
+                                <strong id="soilMax">--</strong>
+                            </div>
+                            <div>
+                                <span>Thấp nhất</span>
+                                <strong id="soilMin">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <canvas id="soilChart"></canvas>
+                        </div>
+
+                        <p class="chart-empty" id="soilEmpty" hidden>
+                            Không có dữ liệu trong khoảng thời gian này.
+                        </p>
+                    </article>
+
+                    <!-- TEMPERATURE CHART -->
+                    <article class="chart-card">
+                        <div class="chart-header">
+                            <div>
+                                <h3>Nhiệt độ không khí</h3>
+                                <p>Temperature (°C)</p>
+                            </div>
+                            <span class="chart-icon">🌡️</span>
+                        </div>
+
+                        <div class="results">
+                            <label for="temperatureRange">Results</label>
+                            <select id="temperatureRange">
+                                <option value="day">Theo ngày</option>
+                                <option value="month">Theo tháng</option>
+                            </select>
+                        </div>
+
+                        <div class="date-filter">
+                            <label for="temperatureDate">Chọn ngày/tháng</label>
+                            <input type="date" id="temperatureDate">
+                        </div>
+
+                        <div class="chart-summary">
+                            <div>
+                                <span>Trung bình</span>
+                                <strong id="temperatureAverage">--</strong>
+                            </div>
+                            <div>
+                                <span>Cao nhất</span>
+                                <strong id="temperatureMax">--</strong>
+                            </div>
+                            <div>
+                                <span>Thấp nhất</span>
+                                <strong id="temperatureMin">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <canvas id="temperatureChart"></canvas>
+                        </div>
+
+                        <p class="chart-empty" id="temperatureEmpty" hidden>
+                            Không có dữ liệu trong khoảng thời gian này.
+                        </p>
+                    </article>
+
+                    <!-- AIR HUMIDITY CHART -->
+                    <article class="chart-card">
+                        <div class="chart-header">
+                            <div>
+                                <h3>Độ ẩm không khí</h3>
+                                <p>Air Humidity (%)</p>
+                            </div>
+                            <span class="chart-icon">☁️</span>
+                        </div>
+
+                        <div class="results">
+                            <label for="humidityRange">Results</label>
+                            <select id="humidityRange">
+                                <option value="day">Theo ngày</option>
+                                <option value="month">Theo tháng</option>
+                            </select>
+                        </div>
+
+                        <div class="date-filter">
+                            <label for="humidityDate">Chọn ngày/tháng</label>
+                            <input type="date" id="humidityDate">
+                        </div>
+
+                        <div class="chart-summary">
+                            <div>
+                                <span>Trung bình</span>
+                                <strong id="humidityAverage">--</strong>
+                            </div>
+                            <div>
+                                <span>Cao nhất</span>
+                                <strong id="humidityMax">--</strong>
+                            </div>
+                            <div>
+                                <span>Thấp nhất</span>
+                                <strong id="humidityMin">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="chart-container">
+                            <canvas id="humidityChart"></canvas>
+                        </div>
+
+                        <p class="chart-empty" id="humidityEmpty" hidden>
+                            Không có dữ liệu trong khoảng thời gian này.
+                        </p>
+                    </article>
+
+                </div>
+            </section>
+
+            <!-- HISTORY -->
+            <section id="history" class="section">
+                <div class="section-heading">
+                    <div>
+                        <h2>Lịch sử dữ liệu ThingSpeak</h2>
+                        <p>Xem các bản ghi cảm biến và trạng thái hoạt động.</p>
+                    </div>
+                </div>
+
+                <div class="history-card">
+                    <div class="history-toolbar">
+                        <div>
+                            <label for="historySearch">Tìm kiếm</label>
+                            <input type="search" id="historySearch" placeholder="Nhập ngày hoặc giá trị...">
+                        </div>
+
+                        <div>
+                            <label for="pageSize">Số bản ghi/trang</label>
+                            <select id="pageSize">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Thời gian</th>
+                                    <th>Độ ẩm đất</th>
+                                    <th>Nhiệt độ</th>
+                                    <th>Độ ẩm KK</th>
+                                    <th>Máy bơm</th>
+                                    <th>Chế độ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyBody">
+                                <tr>
+                                    <td colspan="6" class="table-message">
+                                        Đang tải dữ liệu...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination">
+                        <span id="paginationInfo">Chưa có dữ liệu</span>
+
+                        <div class="pagination-buttons">
+                            <button id="previousPage" disabled>
+                                ← Trước
+                            </button>
+                            <span id="currentPage">1 / 1</span>
+                            <button id="nextPage" disabled>
+                                Sau →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FOOTER -->
+            <footer class="footer">
+                <p>Smart Irrigation System · ESP32 · ThingSpeak</p>
+                <p>Dữ liệu hiển thị phụ thuộc vào các bản ghi được gửi từ ESP32.</p>
+            </footer>
+
+        </main>
     </div>
 
+    <!-- JAVASCRIPT: KẾT NỐI THINGSPEAK VÀ XỬ LÝ GIAO DIỆN -->
     <script>
-        // ==========================================
+        // =====================================================
         // 1. CẤU HÌNH THINGSPEAK
-        // ==========================================
+        // =====================================================
 
-        const CHANNEL_ID = "";
-
-        // Nếu Channel Public, để chuỗi rỗng.
-        // Nếu Channel Private, nhập READ API KEY.
+        const CHANNEL_ID = "THAY_CHANNEL_ID_CUA_BAN";
         const READ_API_KEY = "";
+        const RESULTS_LIMIT = 8000;
+        const REFRESH_INTERVAL = 20000;
 
-        // Cập nhật mỗi 16 giây
-        const REFRESH_INTERVAL = 16000;
+        /*
+          Field 1: Độ ẩm đất (%)
+          Field 2: Nhiệt độ (°C)
+          Field 3: Độ ẩm không khí (%)
+          Field 4: Máy bơm (1 = bật, 0 = tắt)
+          Field 5: Chế độ (1 = AUTO, 0 = MANUAL)
+          Field 6: Mức ưu tiên (0 = thấp, 1 = bình thường, 2 = cao)
+        */
 
-        // ==========================================
-        // 2. HÀM HỖ TRỢ HIỂN THỊ
-        // ==========================================
+        let allFeeds = [];
+        let filteredHistory = [];
+        let currentPage = 1;
+        let pageSize = 10;
+        let refreshTimer = null;
 
-        function getNumber(value) {
+        const charts = {};
+
+        const fields = {
+            soil: {
+                field: "field1",
+                chartId: "soilChart",
+                rangeId: "soilRange",
+                dateId: "soilDate",
+                averageId: "soilAverage",
+                maxId: "soilMax",
+                minId: "soilMin",
+                emptyId: "soilEmpty",
+                unit: "%",
+                decimals: 1
+            },
+            temperature: {
+                field: "field2",
+                chartId: "temperatureChart",
+                rangeId: "temperatureRange",
+                dateId: "temperatureDate",
+                averageId: "temperatureAverage",
+                maxId: "temperatureMax",
+                minId: "temperatureMin",
+                emptyId: "temperatureEmpty",
+                unit: "°C",
+                decimals: 1
+            },
+            humidity: {
+                field: "field3",
+                chartId: "humidityChart",
+                rangeId: "humidityRange",
+                dateId: "humidityDate",
+                averageId: "humidityAverage",
+                maxId: "humidityMax",
+                minId: "humidityMin",
+                emptyId: "humidityEmpty",
+                unit: "%",
+                decimals: 1
+            }
+        };
+
+        // =====================================================
+        // 2. HÀM TIỆN ÍCH
+        // =====================================================
+
+        function $(id) {
+            return document.getElementById(id);
+        }
+
+        function formatNumber(value, decimals = 1) {
             if (value === null || value === undefined || value === "") {
-                return null;
+                return "--";
             }
 
             const number = Number(value);
-            return Number.isFinite(number) ? number : null;
+
+            if (!Number.isFinite(number)) {
+                return "--";
+            }
+
+            return number.toFixed(decimals);
         }
 
-        function formatNumber(value, digits = 1) {
-            return value === null ? "--" : value.toFixed(digits);
-        }
-
-        function getPriority(value) {
-            const priority = getNumber(value);
-
-            if (priority === 0) return "LOW";
-            if (priority === 1) return "NORMAL";
-            if (priority === 2) return "HIGH";
-
-            return "Không xác định";
-        }
-
-        function getMode(value) {
-            const mode = getNumber(value);
-
-            if (mode === 0) return "MANUAL";
-            if (mode === 1) return "AUTO";
-
-            return "Không xác định";
-        }
-
-        function getPump(value) {
-            const pump = getNumber(value);
-
-            if (pump === 0) return "TẮT";
-            if (pump === 1) return "ĐANG BẬT";
-
-            return "Không xác định";
-        }
-
-        function setPill(id, text, type = "") {
-            const element = document.getElementById(id);
-            element.textContent = text;
-            element.className = "pill";
-
-            if (type) element.classList.add(type);
-        }
-
-        function formatTime(value) {
+        function formatDate(value) {
             if (!value) return "--";
 
             const date = new Date(value);
 
-            if (Number.isNaN(date.getTime())) return value;
+            if (Number.isNaN(date.getTime())) {
+                return "--";
+            }
 
-            return date.toLocaleString("vi-VN", {
-                timeZone: "Asia/Ho_Chi_Minh"
-            });
+            return date.toLocaleString("vi-VN");
         }
 
-        // ==========================================
-        // 3. KHỞI TẠO 3 BIỂU ĐỒ RIÊNG BIỆT
-        // ==========================================
+        function getLocalDateKey(value) {
+            const date = new Date(value);
 
-        function createSensorChart(canvasId, label, color, unit, suggestedMax = undefined) {
-            return new Chart(document.getElementById(canvasId), {
+            if (Number.isNaN(date.getTime())) {
+                return "";
+            }
+
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+
+            return `${year}-${month}-${day}`;
+        }
+
+        function getLocalMonthKey(value) {
+            const date = new Date(value);
+
+            if (Number.isNaN(date.getTime())) {
+                return "";
+            }
+
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+
+            return `${year}-${month}`;
+        }
+
+        function getSelectedDate(config) {
+            const input = $(config.dateId);
+            const range = $(config.rangeId).value;
+
+            if (input.value) {
+                return range === "month"
+                    ? input.value.slice(0, 7)
+                    : input.value;
+            }
+
+            return range === "month"
+                ? getLocalMonthKey(new Date())
+                : getLocalDateKey(new Date());
+        }
+
+        function getValidFeeds(field) {
+            return allFeeds
+                .filter(feed => {
+                    const value = feed[field];
+
+                    return (
+                        feed.created_at &&
+                        value !== null &&
+                        value !== undefined &&
+                        value !== "" &&
+                        Number.isFinite(Number(value))
+                    );
+                })
+                .map(feed => ({
+                    ...feed,
+                    numericValue: Number(feed[field])
+                }));
+        }
+
+        function setConnectionStatus(connected, message) {
+            $("connectionText").textContent = message;
+            $("sidebarConnection").textContent = message;
+
+            $("connectionStatus").classList.toggle("connected", connected);
+            $("connectionStatus").classList.toggle("disconnected", !connected);
+
+            $("sidebarDot").classList.toggle("connected", connected);
+            $("sidebarDot").classList.toggle("disconnected", !connected);
+        }
+
+        // =====================================================
+        // 3. TẢI DỮ LIỆU THINGSPEAK
+        // =====================================================
+
+        async function loadThingSpeakData() {
+            if (
+                !CHANNEL_ID ||
+                CHANNEL_ID === "THAY_CHANNEL_ID_CUA_BAN"
+            ) {
+                setConnectionStatus(false, "Chưa cấu hình Channel ID");
+
+                $("historyBody").innerHTML = `
+                    <tr>
+                        <td colspan="6" class="table-message error-message">
+                            Vui lòng cấu hình CHANNEL_ID trong index.html.
+                        </td>
+                    </tr>
+                `;
+
+                return;
+            }
+
+            setConnectionStatus(false, "Đang tải dữ liệu...");
+
+            const endpoint =
+                `https://api.thingspeak.com/channels/${encodeURIComponent(CHANNEL_ID)}/feeds.json` +
+                `?results=${RESULTS_LIMIT}` +
+                (READ_API_KEY
+                    ? `&api_key=${encodeURIComponent(READ_API_KEY)}`
+                    : "");
+
+            try {
+                const response = await fetch(endpoint, {
+                    cache: "no-store"
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (!Array.isArray(data.feeds)) {
+                    throw new Error("ThingSpeak không trả về danh sách feeds.");
+                }
+
+                allFeeds = data.feeds;
+                filteredHistory = [...allFeeds].reverse();
+
+                $("channelDisplay").textContent = CHANNEL_ID;
+                $("recordCount").textContent = allFeeds.length.toLocaleString("vi-VN");
+                $("lastUpdated").textContent =
+                    new Date().toLocaleTimeString("vi-VN");
+
+                setConnectionStatus(true, "Đã kết nối ThingSpeak");
+
+                updateOverview();
+                updateAllCharts();
+                updateHistory();
+
+            } catch (error) {
+                console.error("Lỗi tải ThingSpeak:", error);
+
+                setConnectionStatus(false, "Không thể tải dữ liệu ThingSpeak");
+
+                $("historyBody").innerHTML = `
+                    <tr>
+                        <td colspan="6" class="table-message error-message">
+                            Không thể tải dữ liệu ThingSpeak.
+                            Hãy kiểm tra Channel ID, quyền đọc dữ liệu và kết nối Internet.
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // =====================================================
+        // 4. CẬP NHẬT CÁC THẺ TỔNG QUAN
+        // =====================================================
+
+        function updateOverview() {
+            if (allFeeds.length === 0) {
+                return;
+            }
+
+            const latest = [...allFeeds]
+                .reverse()
+                .find(feed => feed.created_at);
+
+            if (!latest) return;
+
+            const soil = latest.field1;
+            const temperature = latest.field2;
+            const humidity = latest.field3;
+
+            $("soilValue").textContent = formatNumber(soil);
+            $("temperatureValue").textContent = formatNumber(temperature);
+            $("humidityValue").textContent = formatNumber(humidity);
+
+            $("soilProgress").style.width =
+                `${Math.min(100, Math.max(0, Number(soil) || 0))}%`;
+
+            $("temperatureProgress").style.width =
+                `${Math.min(100, Math.max(0, Number(temperature) / 50 * 100))}%`;
+
+            $("humidityProgress").style.width =
+                `${Math.min(100, Math.max(0, Number(humidity) || 0))}%`;
+
+            const soilNumber = Number(soil);
+
+            if (soil === null || soil === "") {
+                $("soilDescription").textContent = "Chưa có dữ liệu độ ẩm đất.";
+            } else if (soilNumber <= 30) {
+                $("soilDescription").textContent = "Đất khô · Cần xem xét tưới.";
+            } else if (soilNumber >= 45) {
+                $("soilDescription").textContent = "Đất đủ ẩm · Chưa cần tưới.";
+            } else {
+                $("soilDescription").textContent = "Đất ở vùng độ ẩm trung gian.";
+            }
+
+            const tempNumber = Number(temperature);
+
+            $("temperatureDescription").textContent =
+                temperature === null || temperature === ""
+                    ? "Chưa có dữ liệu nhiệt độ."
+                    : tempNumber >= 32
+                        ? "Nhiệt độ cao · Tăng mức cảnh giác."
+                        : tempNumber <= 28
+                            ? "Nhiệt độ thấp · Nhu cầu nước có thể giảm."
+                            : "Nhiệt độ trong khoảng trung gian.";
+
+            const humidityNumber = Number(humidity);
+
+            $("humidityDescription").textContent =
+                humidity === null || humidity === ""
+                    ? "Chưa có dữ liệu độ ẩm không khí."
+                    : humidityNumber <= 40
+                        ? "Không khí khô · Nước có thể thoát nhanh hơn."
+                        : humidityNumber >= 65
+                            ? "Không khí ẩm · Tốc độ thoát hơi có thể giảm."
+                            : "Độ ẩm không khí ở mức trung gian.";
+
+            // Field 4: 1 = bật, 0 = tắt
+            const pump = latest.field4;
+
+            if (pump === "1" || pump === 1) {
+                $("pumpStatus").textContent = "Máy bơm đang bật";
+                $("pumpDescription").textContent = "ESP32 báo trạng thái bơm hoạt động.";
+                $("pumpBadge").textContent = "ON";
+                $("pumpBadge").className = "state-badge success";
+            } else if (pump === "0" || pump === 0) {
+                $("pumpStatus").textContent = "Máy bơm đang tắt";
+                $("pumpDescription").textContent = "ESP32 báo máy bơm không hoạt động.";
+                $("pumpBadge").textContent = "OFF";
+                $("pumpBadge").className = "state-badge neutral";
+            } else {
+                $("pumpStatus").textContent = "Chưa có dữ liệu";
+                $("pumpDescription").textContent = "Kiểm tra Field 4 trên ThingSpeak.";
+                $("pumpBadge").textContent = "UNKNOWN";
+                $("pumpBadge").className = "state-badge neutral";
+            }
+
+            // Field 5: 1 = AUTO, 0 = MANUAL
+            const mode = latest.field5;
+
+            if (mode === "1" || mode === 1) {
+                $("modeStatus").textContent = "Tự động (AUTO)";
+                $("modeDescription").textContent = "ESP32 tự quyết định tưới theo thuật toán.";
+                $("modeBadge").textContent = "AUTO";
+                $("modeBadge").className = "state-badge success";
+            } else if (mode === "0" || mode === 0) {
+                $("modeStatus").textContent = "Thủ công (MANUAL)";
+                $("modeDescription").textContent = "Người dùng điều khiển máy bơm thủ công.";
+                $("modeBadge").textContent = "MANUAL";
+                $("modeBadge").className = "state-badge info";
+            } else {
+                $("modeStatus").textContent = "Chưa có dữ liệu";
+                $("modeDescription").textContent = "Kiểm tra Field 5 trên ThingSpeak.";
+                $("modeBadge").textContent = "UNKNOWN";
+                $("modeBadge").className = "state-badge neutral";
+            }
+        }
+
+        // =====================================================
+        // 5. KHỞI TẠO VÀ CẬP NHẬT BIỂU ĐỒ
+        // =====================================================
+
+        function createChart(key) {
+            const config = fields[key];
+            const canvas = $(config.chartId);
+
+            charts[key] = new Chart(canvas, {
                 type: "line",
                 data: {
                     labels: [],
                     datasets: [{
-                        label,
+                        label: config.unit,
                         data: [],
-                        borderColor: color,
-                        backgroundColor: color + "22",
+                        borderColor:
+                            key === "soil" ? "#16a34a" :
+                                key === "temperature" ? "#ea580c" :
+                                    "#0284c7",
+                        backgroundColor:
+                            key === "soil" ? "rgba(22,163,74,0.12)" :
+                                key === "temperature" ? "rgba(234,88,12,0.12)" :
+                                    "rgba(2,132,199,0.12)",
+                        borderWidth: 2,
                         fill: true,
                         tension: 0.3,
-                        pointRadius: 3,
-                        pointHoverRadius: 5,
-                        spanGaps: true
+                        pointRadius: 2,
+                        pointHoverRadius: 5
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    interaction: { intersect: false, mode: "index" },
+                    interaction: {
+                        intersect: false,
+                        mode: "index"
+                    },
                     plugins: {
-                        legend: { display: true, position: "bottom" },
-                        tooltip: { callbacks: { label: context => `${context.dataset.label}: ${context.parsed.y ?? "--"}${unit}` } }
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: context =>
+                                    `${context.parsed.y} ${config.unit}`
+                            }
+                        }
                     },
                     scales: {
-                        x: { title: { display: true, text: "Thời gian" } },
-                        y: { beginAtZero: true, suggestedMax }
+                        x: {
+                            ticks: {
+                                maxTicksLimit: 8,
+                                maxRotation: 0
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: key !== "temperature",
+                            title: {
+                                display: true,
+                                text: config.unit
+                            }
+                        }
                     }
                 }
             });
         }
 
-        const soilChart = createSensorChart("soilChart", "Độ ẩm đất", "#0284c7", "%", 100);
-        const temperatureChart = createSensorChart("temperatureChart", "Nhiệt độ", "#ea580c", "°C");
-        const humidityChart = createSensorChart("humidityChart", "Độ ẩm không khí", "#7c3aed", "%", 100);
+        function updateChart(key) {
+            const config = fields[key];
+            const range = $(config.rangeId).value;
+            const selected = getSelectedDate(config);
 
-        // ==========================================
-        // 4. ĐỌC DỮ LIỆU TỪ THINGSPEAK
-        // ==========================================
+            const matchingFeeds = getValidFeeds(config.field)
+                .filter(feed => {
+                    const dateKey = range === "month"
+                        ? getLocalMonthKey(feed.created_at)
+                        : getLocalDateKey(feed.created_at);
 
-        async function loadThingSpeakData() {
-            const errorElement = document.getElementById("error");
+                    return dateKey === selected;
+                })
+                .sort((a, b) =>
+                    new Date(a.created_at) - new Date(b.created_at)
+                );
 
-            try {
-                if (
-                    !CHANNEL_ID ||
-                    CHANNEL_ID === "YOUR_CHANNEL_ID"
-                ) {
-                    throw new Error(
-                        "Bạn chưa nhập CHANNEL_ID trong phần cấu hình."
-                    );
-                }
+            const empty = matchingFeeds.length === 0;
 
-                let url =
-                    `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=20`;
+            $(config.emptyId).hidden = !empty;
+            $(config.chartId).parentElement.style.display =
+                empty ? "none" : "block";
 
-                if (READ_API_KEY.trim() !== "") {
-                    url += `&api_key=${encodeURIComponent(READ_API_KEY.trim())}`;
-                }
+            const values = matchingFeeds.map(feed => feed.numericValue);
 
-                const response = await fetch(url, {
-                    cache: "no-store"
+            if (values.length > 0) {
+                const average = values.reduce((sum, value) => sum + value, 0)
+                    / values.length;
+
+                $(config.averageId).textContent =
+                    `${average.toFixed(config.decimals)} ${config.unit}`;
+
+                $(config.maxId).textContent =
+                    `${Math.max(...values).toFixed(config.decimals)} ${config.unit}`;
+
+                $(config.minId).textContent =
+                    `${Math.min(...values).toFixed(config.decimals)} ${config.unit}`;
+            } else {
+                $(config.averageId).textContent = "--";
+                $(config.maxId).textContent = "--";
+                $(config.minId).textContent = "--";
+            }
+
+            charts[key].data.labels = matchingFeeds.map(feed => {
+                const date = new Date(feed.created_at);
+
+                return range === "month"
+                    ? date.toLocaleDateString("vi-VN")
+                    : date.toLocaleTimeString("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit"
+                    });
+            });
+
+            charts[key].data.datasets[0].data = values;
+            charts[key].update();
+        }
+
+        function updateAllCharts() {
+            updateChart("soil");
+            updateChart("temperature");
+            updateChart("humidity");
+        }
+
+        // =====================================================
+        // 6. LỊCH SỬ VÀ PHÂN TRANG
+        // =====================================================
+
+        function updateHistory() {
+            const searchText = $("historySearch").value
+                .trim()
+                .toLowerCase();
+
+            filteredHistory = [...allFeeds]
+                .reverse()
+                .filter(feed => {
+                    const searchable = [
+                        formatDate(feed.created_at),
+                        feed.field1,
+                        feed.field2,
+                        feed.field3,
+                        feed.field4,
+                        feed.field5
+                    ].join(" ").toLowerCase();
+
+                    return searchable.includes(searchText);
                 });
 
-                if (!response.ok) {
-                    throw new Error(
-                        `ThingSpeak trả về lỗi HTTP ${response.status}.`
-                    );
+            const total = filteredHistory.length;
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+            if (currentPage > totalPages) {
+                currentPage = totalPages;
+            }
+
+            const start = (currentPage - 1) * pageSize;
+            const visibleFeeds = filteredHistory.slice(start, start + pageSize);
+
+            const tbody = $("historyBody");
+
+            if (visibleFeeds.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="table-message">
+                            Không tìm thấy dữ liệu phù hợp.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = visibleFeeds.map(feed => {
+                    const pumpOn = feed.field4 === "1";
+                    const autoMode = feed.field5 === "1";
+
+                    const pumpLabel =
+                        pumpOn ? "Đang bật" :
+                            feed.field4 === "0" ? "Đang tắt" : "N/A";
+
+                    const modeLabel =
+                        autoMode ? "AUTO" :
+                            feed.field5 === "0" ? "MANUAL" : "N/A";
+
+                    return `
+                        <tr>
+                            <td>${formatDate(feed.created_at)}</td>
+                            <td>${formatNumber(feed.field1)}%</td>
+                            <td>${formatNumber(feed.field2)} °C</td>
+                            <td>${formatNumber(feed.field3)}%</td>
+                            <td>
+                                <span class="table-badge ${pumpOn ? "badge-on" : "badge-off"}">
+                                    ${pumpLabel}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="table-badge ${autoMode ? "badge-auto" : "badge-manual"}">
+                                    ${modeLabel}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                }).join("");
+            }
+
+            $("paginationInfo").textContent = total > 0
+                ? `Hiển thị ${start + 1}–${Math.min(start + pageSize, total)} / ${total} bản ghi`
+                : "Không có bản ghi";
+
+            $("currentPage").textContent = `${currentPage} / ${totalPages}`;
+            $("previousPage").disabled = currentPage <= 1;
+            $("nextPage").disabled = currentPage >= totalPages;
+        }
+
+        // =====================================================
+        // 7. SỰ KIỆN GIAO DIỆN
+        // =====================================================
+
+        function setupEvents() {
+            $("refreshButton").addEventListener("click", () => {
+                loadThingSpeakData();
+            });
+
+            $("previousPage").addEventListener("click", () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    updateHistory();
                 }
+            });
 
-                const result = await response.json();
-
-                if (!Array.isArray(result.feeds) || result.feeds.length === 0) {
-                    throw new Error(
-                        "Channel chưa có dữ liệu hoặc bạn không có quyền đọc dữ liệu."
-                    );
-                }
-
-                // Chỉ dùng các bản ghi có ít nhất một Field chứa dữ liệu.
-                const feeds = result.feeds.filter(feed =>
-                    [
-                        feed.field1, feed.field2, feed.field3,
-                        feed.field4, feed.field5, feed.field6
-                    ].some(value => value !== null && value !== undefined && value !== "")
+            $("nextPage").addEventListener("click", () => {
+                const totalPages = Math.max(
+                    1,
+                    Math.ceil(filteredHistory.length / pageSize)
                 );
 
-                if (feeds.length === 0) {
-                    throw new Error("Không tìm thấy bản ghi có dữ liệu.");
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    updateHistory();
                 }
+            });
 
-                const latest = feeds[feeds.length - 1];
+            $("pageSize").addEventListener("change", event => {
+                pageSize = Number(event.target.value);
+                currentPage = 1;
+                updateHistory();
+            });
 
-                // ======================================
-                // 5. HIỂN THỊ 6 FIELD MỚI NHẤT
-                // ======================================
+            $("historySearch").addEventListener("input", () => {
+                currentPage = 1;
+                updateHistory();
+            });
 
-                const soil = getNumber(latest.field1);
-                const temperature = getNumber(latest.field2);
-                const humidity = getNumber(latest.field3);
+            for (const key of Object.keys(fields)) {
+                const config = fields[key];
 
-                document.getElementById("soil").textContent =
-                    soil === null ? "--" : `${formatNumber(soil)}%`;
+                $(config.rangeId).addEventListener("change", () => {
+                    const dateInput = $(config.dateId);
 
-                document.getElementById("temperature").textContent =
-                    temperature === null ? "--" : `${formatNumber(temperature)}°C`;
+                    if ($(config.rangeId).value === "month") {
+                        dateInput.type = "month";
+                    } else {
+                        dateInput.type = "date";
+                    }
 
-                document.getElementById("humidity").textContent =
-                    humidity === null ? "--" : `${formatNumber(humidity)}%`;
-
-                const pumpValue = getNumber(latest.field4);
-                const modeValue = getNumber(latest.field5);
-
-                setPill(
-                    "pump",
-                    getPump(latest.field4),
-                    pumpValue === 1 ? "pill-on" :
-                        pumpValue === 0 ? "pill-off" : ""
-                );
-
-                setPill("mode", getMode(latest.field5));
-
-                setPill(
-                    "priority",
-                    getPriority(latest.field6)
-                );
-
-                document.getElementById("entryId").textContent =
-                    latest.entry_id ?? "--";
-
-                document.getElementById("lastUpdate").textContent =
-                    "Thời gian ghi nhận: " + formatTime(latest.created_at);
-
-                document.getElementById("connectionStatus").textContent =
-                    "● Đã kết nối ThingSpeak";
-
-                document.getElementById("connectionStatus").style.color =
-                    "#15803d";
-
-                errorElement.style.display = "none";
-
-                // ======================================
-                // 6. CẬP NHẬT BIỂU ĐỒ
-                // ======================================
-
-                const chartLabels = feeds.map(feed => {
-                    const date = new Date(feed.created_at);
-
-                    return Number.isNaN(date.getTime())
-                        ? "--"
-                        : date.toLocaleTimeString("vi-VN", {
-                            timeZone: "Asia/Ho_Chi_Minh",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit"
-                        });
+                    dateInput.value = "";
+                    updateChart(key);
                 });
 
-                // Biểu đồ 1: Độ ẩm đất (Field 1)
-                soilChart.data.labels = chartLabels;
-                soilChart.data.datasets[0].data = feeds.map(feed => getNumber(feed.field1));
-                soilChart.update();
-
-                // Biểu đồ 2: Nhiệt độ (Field 2)
-                temperatureChart.data.labels = chartLabels;
-                temperatureChart.data.datasets[0].data = feeds.map(feed => getNumber(feed.field2));
-                temperatureChart.update();
-
-                // Biểu đồ 3: Độ ẩm không khí (Field 3)
-                humidityChart.data.labels = chartLabels;
-                humidityChart.data.datasets[0].data = feeds.map(feed => getNumber(feed.field3));
-                humidityChart.update();
-
-                // ======================================
-                // 7. BẢNG LỊCH SỬ
-                // ======================================
-
-                const history = document.getElementById("history");
-
-                history.innerHTML = [...feeds].reverse().map(feed => `
-          <tr>
-            <td>${formatTime(feed.created_at)}</td>
-            <td>${formatNumber(getNumber(feed.field1))}%</td>
-            <td>${formatNumber(getNumber(feed.field2))}°C</td>
-            <td>${formatNumber(getNumber(feed.field3))}%</td>
-            <td>${getPump(feed.field4)}</td>
-            <td>${getMode(feed.field5)}</td>
-            <td>${getPriority(feed.field6)}</td>
-          </tr>
-        `).join("");
-
-            } catch (error) {
-                errorElement.textContent = error.message;
-                errorElement.style.display = "block";
-
-                document.getElementById("connectionStatus").textContent =
-                    "Không thể tải dữ liệu ThingSpeak";
-
-                document.getElementById("connectionStatus").style.color =
-                    "#dc2626";
-
-                console.error("ThingSpeak error:", error);
+                $(config.dateId).addEventListener("change", () => {
+                    updateChart(key);
+                });
             }
         }
 
-        // ==========================================
-        // 8. CHẠY WEBSITE VÀ TỰ ĐỘNG CẬP NHẬT
-        // ==========================================
+        // =====================================================
+        // 8. KHỞI ĐỘNG TRANG WEB
+        // =====================================================
 
-        loadThingSpeakData();
+        function initDashboard() {
+            createChart("soil");
+            createChart("temperature");
+            createChart("humidity");
 
-        setInterval(loadThingSpeakData, REFRESH_INTERVAL);
+            setupEvents();
+
+            // Lần đầu tải dữ liệu ngay khi mở trang.
+            loadThingSpeakData();
+
+            // Tự động cập nhật mỗi 20 giây.
+            refreshTimer = setInterval(
+                loadThingSpeakData,
+                REFRESH_INTERVAL
+            );
+        }
+
+        document.addEventListener("DOMContentLoaded", initDashboard);
     </script>
 </body>
 
